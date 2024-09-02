@@ -1,19 +1,22 @@
 import { gotScraping } from 'got-scraping';
 
-const VENUE_ID = 1543; // Jeju Noodle Bar
-const PARTY_SIZE = 2;
+const RESTAURANTS = [
+  { id: 1543, name: 'Jeju Noodle Bar', city: 'ny', urlName: 'jeju-noodle-bar' },
+  { id: 65452, name: 'Tatiana', city: 'new-york-ny', urlName: 'tatiana' }
+];
+const PARTY_SIZE = 6;
 const START_DATE = '2024-09-01';
 const END_DATE = '2025-09-01';
 
 const API_KEY = 'VbWk7s3L4KiK5fzlO7JD3Q5EYolJI7n5';
 const discordWebhookUrl = 'https://discord.com/api/webhooks/1280035092634538007/efnkOfGXQDBN-o1x9YifMVHCTTzK4TBsPWREWud-3yXAnSccOjDcprkeYUCshn_UF1Ys';
 
-async function sendDiscordMessage(availableDates) {
+async function sendDiscordMessage(restaurant, availableDates) {
   try {
-    const message = 'New reservations available!';
+    const message = `New reservations available for ${restaurant.name}!`;
     const fields = availableDates.map(date => ({
       name: 'Available Date',
-      value: `[${date.date}](https://resy.com/cities/ny/jeju-noodle-bar?date=${date.date}&seats=${PARTY_SIZE})`,
+      value: `[${date.date}](https://resy.com/cities/${restaurant.city}/venues/${restaurant.urlName}?date=${date.date}&seats=${PARTY_SIZE})`,
       inline: true
     }));
 
@@ -21,7 +24,7 @@ async function sendDiscordMessage(availableDates) {
       json: {
         embeds: [
           {
-            title: 'Jeju Noodle Bar Reservations',
+            title: `${restaurant.name} Reservations`,
             description: message,
             color: 5814783,
             fields: fields,
@@ -30,17 +33,17 @@ async function sendDiscordMessage(availableDates) {
         ],
       },
     });
-    console.log('Discord message sent successfully');
+    console.log(`Discord message sent successfully for ${restaurant.name}`);
   } catch (error) {
-    console.error('Error sending Discord message:', error);
+    console.error(`Error sending Discord message for ${restaurant.name}:`, error);
   }
 }
 
-async function checkReservations() {
+async function checkReservations(restaurant) {
   try {
     const response = await gotScraping.get('https://api.resy.com/4/venue/calendar', {
       searchParams: {
-        venue_id: VENUE_ID,
+        venue_id: restaurant.id,
         num_seats: PARTY_SIZE,
         start_date: START_DATE,
         end_date: END_DATE
@@ -66,20 +69,26 @@ async function checkReservations() {
     );
 
     if (availableDates.length > 0) {
-      console.log('New reservations available on:');
+      console.log(`New reservations available for ${restaurant.name} on:`);
       availableDates.forEach(date => console.log(date.date));
-      await sendDiscordMessage(availableDates);
+      await sendDiscordMessage(restaurant, availableDates);
     } else {
-      console.log('No new reservations available');
+      console.log(`No new reservations available for ${restaurant.name}`);
     }
 
   } catch (error) {
-    console.error('Error checking reservations:', error);
+    console.error(`Error checking reservations for ${restaurant.name}:`, error);
   }
 }
 
-// Check every 30 seconds
-setInterval(checkReservations, 10 * 1000);
+async function checkAllReservations() {
+  for (const restaurant of RESTAURANTS) {
+    await checkReservations(restaurant);
+  }
+}
+
+// Check every 10 seconds
+setInterval(checkAllReservations, 10 * 1000);
 
 // Initial check 
-checkReservations();
+checkAllReservations();
